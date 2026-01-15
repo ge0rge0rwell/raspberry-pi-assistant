@@ -1,0 +1,46 @@
+name: Build Nova OS Image
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y quilt parted libfile-whisperer-perl coreutils qemu-user-static debootstrap zero-free zip dosfstools bsdtar
+
+      - name: Build Nova OS Image
+        run: |
+          # This would trigger a custom pi-gen or image-builder-rpi process
+          # For a quick implementation, we use a tool like 'rpi-image-builder'
+          git clone https://github.com/RPi-Distro/pi-gen.git
+          cd pi-gen
+          # Configure Nova OS layer
+          mkdir -p stage2/01-nova-os
+          cp -r ../src stage2/01-nova-os/
+          cp -r ../gui stage2/01-nova-os/
+          cp -r ../scripts stage2/01-nova-os/
+          echo "cd /home/pi/offline_assistant/scripts && ./setup.sh && ./kiosk_setup.sh" > stage2/01-nova-os/01-run.sh
+          chmod +x stage2/01-nova-os/01-run.sh
+          
+          # Run build (minimal configuration)
+          touch config
+          echo "IMG_NAME='NovaOS'" >> config
+          sudo ./build.sh
+          
+      - name: Upload Image
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-os-image
+          path: pi-gen/deploy/*.zip
