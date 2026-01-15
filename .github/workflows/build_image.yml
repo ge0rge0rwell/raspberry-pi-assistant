@@ -19,24 +19,27 @@ jobs:
             -e IMG_NAME="NovaOS" \
             debian:bookworm /bin/bash -c "
               apt-get update && apt-get install -y \
-                git quilt parted realpath qemu-user-static debootstrap \
+                git quilt parted qemu-user-static debootstrap \
                 zerofree zip dosfstools libarchive-tools libcap2-bin \
-                grep rsync xz-utils file curl bc sudo kpartx
+                grep rsync xz-utils file curl bc sudo kpartx coreutils
               
-              git clone --depth 1 https://github.com/RPi-Distro/pi-gen.git /pi-gen
+              if [ ! -d '/pi-gen' ]; then
+                git clone --depth 1 https://github.com/RPi-Distro/pi-gen.git /pi-gen
+              fi
               cd /pi-gen
               
               # Add Nova OS Layer
               mkdir -p stage2/01-nova-os/files/home/pi/offline_assistant
+              
               # Copy project files into the layer's rootfs path
               cp -r /repo/src stage2/01-nova-os/files/home/pi/offline_assistant/
               cp -r /repo/gui stage2/01-nova-os/files/home/pi/offline_assistant/
               cp -r /repo/scripts stage2/01-nova-os/files/home/pi/offline_assistant/
-              cp /repo/package.json stage2/01-nova-os/files/home/pi/offline_assistant/ || true
+              # Fix: package.json is in /repo/gui/package.json
+              cp /repo/gui/package.json stage2/01-nova-os/files/home/pi/offline_assistant/ || true
               
               # Create the installation script (runs inside chroot)
-              echo '        
-              #!/bin/bash
+              echo '#!/bin/bash
               set -e
               chown -R 1000:1000 /home/pi/offline_assistant
               cd /home/pi/offline_assistant/scripts
@@ -52,7 +55,7 @@ jobs:
               echo \"RELEASE='bookworm'\" >> config
               echo \"DEPLOY_ZIP=1\" >> config
               
-              # Optimize: Skip stages 3-5 (Desktop, specialized tools)
+              # Optimize: Skip stages 3-5
               touch stage3/SKIP stage4/SKIP stage5/SKIP
               
               ./build.sh
